@@ -22,7 +22,7 @@
 const express = require("express");
 const cors = require("cors");
 const { log } = require("console");
-const exFile = require("child_process").execFile;
+const ytdlp = require("yt-dlp-exec");
 const app = express();
 
 app.use(cors());
@@ -36,7 +36,7 @@ app.post("/info", (req, res) => {
     return res.status(400).json({ error: "Invalid URL" });
   }
 
-    exFile("yt-dlp", ["-j", url], (error, stdout) => {
+    ytdlp(["-j", url], (error, stdout) => {
 
 if (error) {
 

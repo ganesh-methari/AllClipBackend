@@ -21,46 +21,61 @@
 
 const express = require("express");
 const cors = require("cors");
-const { log } = require("console");
 const ytdlp = require("yt-dlp-exec");
+
 const app = express();
 
 app.use(cors());
 app.use(express.json());
 
-app.post("/info", (req, res) => {
+/* ---------------- HEALTH CHECK (IMPORTANT FOR RENDER) ---------------- */
+app.get("/", (req, res) => {
+  res.send("Backend is running 🚀");
+});
+
+/* ---------------- INFO ROUTE ---------------- */
+app.post("/info", async (req, res) => {
   const url = req.body.url;
-  log("Received URL for info:", url);
+
+  console.log("Received URL:", url);
 
   if (!url) {
     return res.status(400).json({ error: "Invalid URL" });
   }
 
-    ytdlp(["-j", url], (error, stdout) => {
+  try {
+    // timeout protection (IMPORTANT)
+    const data = await ytdlp(url, {
+      dumpSingleJson: true,
+      noWarnings: true,
+      quiet: true,
+      socketTimeout: 15000,
+    });
 
-if (error) {
-
-    return res.status(500);
-
+    if (!data) {
+      return res.status(500).json({ error: "No data received" });
     }
 
-    const data = JSON.parse(stdout.trim().split("\n")[0]);
-
     res.json({
-      title: data.title,
-      thumbnail: data.thumbnail,
-      duration: data.duration,
-      uploader: data.uploader,
-        _type: data._type,
+      title: data.title || "N/A",
+      thumbnail: data.thumbnail || "",
+      duration: data.duration || 0,
+      uploader: data.uploader || "Unknown",
+      type: data._type || "",
     });
-    log("Info retrieved for URL:", data);
-  });
 
+  } catch (err) {
+    console.error("YT-DLP ERROR:", err.message);
+
+    return res.status(500).json({
+      error: "Failed to fetch video info",
+    });
+  }
 });
 
+/* ---------------- IMPORTANT PORT BINDING ---------------- */
 const PORT = process.env.PORT || 3000;
 
-app.listen(PORT, () => {
-  console.log("Server running on port " + PORT);
-}
-);
+app.listen(PORT, "0.0.0.0", () => {
+  console.log(`Server running on port ${PORT}`);
+});

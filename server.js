@@ -47,30 +47,33 @@ app.post("/info", async (req, res) => {
     return res.status(400).json({ error: "Invalid URL" });
   }
 
-  try {
-    const ytdlp = require("yt-dlp-exec");
+try {
+  const ytdlp = require("yt-dlp-exec");
 
-    const data = await ytdlp(url, {
-      dumpSingleJson: true,
-      noWarnings: true,
-      quiet: true,
-      socketTimeout: 20000,
-    });
+  const data = await ytdlp(url, {
+    dumpSingleJson: true,
+    noWarnings: true,
+    quiet: true,
+    socketTimeout: 30000,
+    forceIpv4: true,
+  });
 
-    return res.json({
-      title: data.title || "N/A",
-      thumbnail: data.thumbnail || "",
-      duration: data.duration || 0,
-      uploader: data.uploader || "Unknown",
-    });
+  res.json({
+    title: data.title,
+    thumbnail: data.thumbnail,
+    duration: data.duration,
+    uploader: data.uploader,
+  });
 
-  } catch (err) {
-    console.error("ERROR:", err.message);
+} catch (err) {
+  console.error("YT ERROR:", err.message);
 
-    return res.status(500).json({
-      error: "Failed to fetch video info",
-    });
-  }
+  res.status(500).json({
+    error: "YouTube blocked request or invalid video"
+  });
+}
+
+
 });
 
 /* ---------------- IMPORTANT PORT BINDING ---------------- */

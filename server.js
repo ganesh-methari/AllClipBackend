@@ -25,7 +25,11 @@ const ytdlp = require("yt-dlp-exec");
 
 const app = express();
 
-app.use(cors());
+app.use(cors({
+  origin: "https://allclip-3dy2.vercel.app",
+  methods: ["GET", "POST"],
+}));
+
 app.use(express.json());
 
 /* ---------------- HEALTH CHECK (IMPORTANT FOR RENDER) ---------------- */
@@ -44,28 +48,24 @@ app.post("/info", async (req, res) => {
   }
 
   try {
-    // timeout protection (IMPORTANT)
+    const ytdlp = require("yt-dlp-exec");
+
     const data = await ytdlp(url, {
       dumpSingleJson: true,
       noWarnings: true,
       quiet: true,
-      socketTimeout: 15000,
+      socketTimeout: 20000,
     });
 
-    if (!data) {
-      return res.status(500).json({ error: "No data received" });
-    }
-
-    res.json({
+    return res.json({
       title: data.title || "N/A",
       thumbnail: data.thumbnail || "",
       duration: data.duration || 0,
       uploader: data.uploader || "Unknown",
-      type: data._type || "",
     });
 
   } catch (err) {
-    console.error("YT-DLP ERROR:", err.message);
+    console.error("ERROR:", err.message);
 
     return res.status(500).json({
       error: "Failed to fetch video info",
@@ -77,5 +77,5 @@ app.post("/info", async (req, res) => {
 const PORT = process.env.PORT || 3000;
 
 app.listen(PORT, "0.0.0.0", () => {
-  console.log(`Server running on port ${PORT}`);
+  console.log("Server running on port " + PORT);
 });

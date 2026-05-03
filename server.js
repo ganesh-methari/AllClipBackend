@@ -6,6 +6,7 @@ const mediaRoutes = require("./socialMedia/musicDown");
 const app = express();
 
 const allowedOrigins = [
+  "http://localhost:5173",
   "https://allclip-3dy2.vercel.app"
 ];
 
@@ -29,10 +30,8 @@ app.get("/", (req, res) => {
   res.send("🎧 Audio Downloader API Running");
 });
 
-const PORT = process.env.PORT || 3000;
-
-app.listen(PORT, "0.0.0.0", () => {
-  console.log("Server running on port " + PORT);
+app.listen(5000, () => {
+  console.log("✅ Server running on http://localhost:5000");
 });
 
 

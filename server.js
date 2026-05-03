@@ -5,9 +5,19 @@ const mediaRoutes = require("./socialMedia/musicDown");
 
 const app = express();
 
+const allowedOrigins = [
+  "https://allclip-3dy2.vercel.app"
+];
+
 app.use(
   cors({
-    origin: "http://localhost:5173", // your Vite frontend
+    origin: function (origin, callback) {
+      if (!origin || allowedOrigins.includes(origin)) {
+        callback(null, true);
+      } else {
+        callback(new Error("CORS blocked"));
+      }
+    }
   })
 );
 
@@ -19,8 +29,10 @@ app.get("/", (req, res) => {
   res.send("🎧 Audio Downloader API Running");
 });
 
-app.listen(5000, () => {
-  console.log("✅ Server running on http://localhost:5000");
+const PORT = process.env.PORT || 3000;
+
+app.listen(PORT, "0.0.0.0", () => {
+  console.log("Server running on port " + PORT);
 });
 
 

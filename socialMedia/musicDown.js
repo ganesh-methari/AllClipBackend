@@ -25,9 +25,7 @@ function cleanUrl(url) {
 router.post("/info", (req, res) => {
   const url = cleanUrl(req.body.url);
 
-  if (!url) {
-    return res.status(400).json({ error: "Invalid URL" });
-  }
+  if (!url) return res.status(400).json({ error: "Invalid URL" });
 
   execFile(
     YTDLP,
@@ -54,7 +52,7 @@ router.post("/info", (req, res) => {
   );
 });
 
-/* ================= DOWNLOAD MP3 ================= */
+/* ================= DOWNLOAD ================= */
 router.get("/download", (req, res) => {
   const url = cleanUrl(req.query.url);
 
@@ -79,10 +77,6 @@ router.get("/download", (req, res) => {
   );
 
   process.stdout.pipe(res);
-
-  process.stderr.on("data", (d) => {
-    console.log(d.toString());
-  });
 
   process.on("error", () => {
     if (!res.headersSent) {

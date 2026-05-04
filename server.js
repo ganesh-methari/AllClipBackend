@@ -1,21 +1,25 @@
 const express = require("express");
 const cors = require("cors");
-const musicRoutes = require("./socialMedia/musicDown"); // Import the combined routes
+const musicRoutes = require("./socialMedia/musicDown");
 
 const app = express();
 
+/* ✅ VERY IMPORTANT — GLOBAL CORS (handles preflight automatically) */
+app.use(cors());
 
-app.use(cors()); //  allow all (for now)
-
+/* ✅ Middleware */
 app.use(express.json());
 
+/* ✅ Routes */
 app.use("/music", musicRoutes);
 
+/* ✅ Test route */
 app.get("/", (req, res) => {
   res.send("🚀 API Running");
 });
 
-const PORT = 5000;
+/* ✅ Start server */
+const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
   console.log(`✅ Server running on port ${PORT}`);
 });

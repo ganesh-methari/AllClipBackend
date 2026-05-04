@@ -1,23 +1,25 @@
 const express = require("express");
 const cors = require("cors");
-const mediaRoutes = require("./socialMedia/musicDown"); // Import the combined routes
+const musicRoutes = require("./socialMedia/musicDown"); // Import the combined routes
 
 const app = express();
+
+const cors = require("cors");
 
 app.use(
   cors({
     origin: [
       "http://localhost:5173",
-      "https://allclip-3dy2.vercel.app"
+      "https://all-clip-frontend.vercel.app"
     ],
-    methods: ["GET", "POST"],
+    methods: ["GET", "POST", "OPTIONS"],
     allowedHeaders: ["Content-Type"],
   })
 );
 
 app.use(express.json());
 
-app.use("/media", mediaRoutes);
+app.use("/music", musicRoutes);
 
 app.get("/", (req, res) => {
   res.send("🚀 API Running");

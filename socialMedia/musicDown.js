@@ -30,12 +30,15 @@ router.post("/info", async (req, res) => {
   }
 
   try {
-  const data = await ytdlp(url, {
-  dumpSingleJson: true,
-  skipDownload: true,
-  noCheckCertificates: true,
-  userAgent: "Mozilla/5.0",
-});
+    const data = await ytdlp(url, {
+      dumpSingleJson: true,
+      skipDownload: true,
+      noWarnings: true,
+      noCheckCertificates: true,
+      userAgent: "Mozilla/5.0",
+      geoBypass: true,
+      extractFlat: true,
+    });
 
     res.json({
       title: data.title,
@@ -68,10 +71,7 @@ router.get("/download", async (req, res) => {
     });
 
     res.setHeader("Content-Type", "audio/mpeg");
-    res.setHeader(
-      "Content-Disposition",
-      'attachment; filename="audio.mp3"'
-    );
+    res.setHeader("Content-Disposition", 'attachment; filename="audio.mp3"');
 
     stream.pipe(res);
   } catch (err) {

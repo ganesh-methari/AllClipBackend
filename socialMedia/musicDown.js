@@ -1,8 +1,7 @@
+const log = require("cros/common/logger");
 const express = require("express");
 const router = express.Router();
-const { spawn, execFile } = require("child_process");
-
-const YTDLP = "yt-dlp";
+const ytdlp = require("yt-dlp-exec");
 
 /* ================= CLEAN URL ================= */
 function cleanUrl(url) {
@@ -21,72 +20,64 @@ function cleanUrl(url) {
   return url;
 }
 
-/* ================= GET INFO ================= */
-router.post("/info", (req, res) => {
+/* ================= INFO ================= */
+router.post("/info", async (req, res) => {
   const url = cleanUrl(req.body.url);
+  console.log("INFO REQUEST:", url);
 
-  if (!url) return res.status(400).json({ error: "Invalid URL" });
+  if (!url) {
+    return res.status(400).json({ error: "Invalid URL" });
+  }
 
-  execFile(
-    YTDLP,
-    ["-j", "--no-playlist", url],
-    { maxBuffer: 50 * 1024 * 1024 },
-    (err, stdout) => {
-      if (err) {
-        return res.status(500).json({ error: "yt-dlp failed" });
-      }
+  try {
+    const data = await ytdlp(url, {
+      dumpSingleJson: true,
+      noWarnings: true,
+      preferFreeFormats: true,
+      skipDownload: true,
+    });
 
-      try {
-        const data = JSON.parse(stdout.split("\n").pop());
+    res.json({
+      title: data.title,
+      thumbnail: data.thumbnail,
+      duration: data.duration,
+      uploader: data.uploader,
+    });
+  } catch (err) {
+    console.error("YT ERROR:", err.message);
 
-        res.json({
-          title: data.title,
-          duration: data.duration,
-          uploader: data.uploader,
-          thumbnail: data.thumbnail,
-        });
-      } catch {
-        res.status(500).json({ error: "Parse error" });
-      }
-    }
-  );
+    res.status(500).json({
+      error: "yt-dlp failed",
+      details: err.message,
+    });
+  }
 });
 
 /* ================= DOWNLOAD ================= */
-router.get("/download", (req, res) => {
+router.get("/download", async (req, res) => {
   const url = cleanUrl(req.query.url);
 
   if (!url) return res.status(400).send("Invalid URL");
 
-  const process = spawn(YTDLP, [
-    "-x",
-    "--audio-format",
-    "mp3",
-    "--audio-quality",
-    "0",
-    "--no-playlist",
-    "-o",
-    "-",
-    url,
-  ]);
+  try {
+    const stream = ytdlp.execStream(url, {
+      extractAudio: true,
+      audioFormat: "mp3",
+      audioQuality: 0,
+      output: "-",
+    });
 
-  res.setHeader("Content-Type", "audio/mpeg");
-  res.setHeader(
-    "Content-Disposition",
-    `attachment; filename="audio.mp3"`
-  );
+    res.setHeader("Content-Type", "audio/mpeg");
+    res.setHeader(
+      "Content-Disposition",
+      'attachment; filename="audio.mp3"'
+    );
 
-  process.stdout.pipe(res);
-
-  process.on("error", () => {
-    if (!res.headersSent) {
-      res.status(500).send("Download failed");
-    }
-  });
-
-  process.on("close", () => {
-    res.end();
-  });
+    stream.pipe(res);
+  } catch (err) {
+    console.error(err.message);
+    res.status(500).send("Download failed");
+  }
 });
 
 module.exports = router;

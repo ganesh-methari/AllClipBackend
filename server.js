@@ -1,25 +1,28 @@
 const express = require("express");
-const cors = require("cors");
-const musicRoutes = require("./socialMedia/musicDown");
-
 const app = express();
 
-/* ✅ VERY IMPORTANT — GLOBAL CORS (handles preflight automatically) */
-app.use(cors());
+/* 🔥 HARD CORS FIX (no issues ever) */
+app.use((req, res, next) => {
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("Access-Control-Allow-Methods", "GET,POST,OPTIONS");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
 
-/* ✅ Middleware */
+  if (req.method === "OPTIONS") {
+    return res.sendStatus(200);
+  }
+
+  next();
+});
+
 app.use(express.json());
 
-/* ✅ Routes */
-app.use("/music", musicRoutes);
+/*  ROUTES */
+app.use("/music", require("./socialMedia/musicDown"));
 
-/* ✅ Test route */
+/*  TEST */
 app.get("/", (req, res) => {
   res.send("🚀 API Running");
 });
 
-/* ✅ Start server */
 const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => {
-  console.log(`✅ Server running on port ${PORT}`);
-});
+app.listen(PORT, () => console.log("✅ Server running on", PORT));

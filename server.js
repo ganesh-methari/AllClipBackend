@@ -4,18 +4,8 @@ const musicRoutes = require("./socialMedia/musicDown"); // Import the combined r
 
 const app = express();
 
-const cors = require("cors");
 
-app.use(
-  cors({
-    origin: [
-      "http://localhost:5173",
-      "https://all-clip-frontend.vercel.app"
-    ],
-    methods: ["GET", "POST", "OPTIONS"],
-    allowedHeaders: ["Content-Type"],
-  })
-);
+app.use(cors()); //  allow all (for now)
 
 app.use(express.json());
 

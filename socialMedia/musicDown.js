@@ -30,12 +30,12 @@ router.post("/info", async (req, res) => {
   }
 
   try {
-    const data = await ytdlp(url, {
-      dumpSingleJson: true,
-      noWarnings: true,
-      preferFreeFormats: true,
-      skipDownload: true,
-    });
+  const data = await ytdlp(url, {
+  dumpSingleJson: true,
+  skipDownload: true,
+  noCheckCertificates: true,
+  userAgent: "Mozilla/5.0",
+});
 
     res.json({
       title: data.title,

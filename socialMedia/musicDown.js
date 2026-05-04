@@ -1,9 +1,8 @@
-const log = require("cros/common/logger");
 const express = require("express");
 const router = express.Router();
 const ytdlp = require("yt-dlp-exec");
 
-/* ================= CLEAN URL ================= */
+// clean youtube url
 function cleanUrl(url) {
   if (!url) return null;
 
@@ -23,7 +22,6 @@ function cleanUrl(url) {
 /* ================= INFO ================= */
 router.post("/info", async (req, res) => {
   const url = cleanUrl(req.body.url);
-  console.log("INFO REQUEST:", url);
 
   if (!url) {
     return res.status(400).json({ error: "Invalid URL" });
@@ -31,23 +29,24 @@ router.post("/info", async (req, res) => {
 
   try {
     const data = await ytdlp(url, {
-  dumpSingleJson: true,
-  skipDownload: true,
-  noWarnings: true,
-  noCheckCertificates: true,
-  userAgent: "Mozilla/5.0",
-});
+      dumpSingleJson: true,
+      skipDownload: true,
+      noWarnings: true,
+      noCheckCertificates: true,
+      userAgent: "Mozilla/5.0",
+    });
 
-    res.json({
+    return res.json({
       title: data.title,
       thumbnail: data.thumbnail,
       duration: data.duration,
       uploader: data.uploader,
     });
-  } catch (err) {
-    console.error("YT ERROR:", err.message);
 
-    res.status(500).json({
+  } catch (err) {
+    console.error(err.message);
+
+    return res.status(500).json({
       error: "yt-dlp failed",
       details: err.message,
     });
@@ -72,8 +71,8 @@ router.get("/download", async (req, res) => {
     res.setHeader("Content-Disposition", 'attachment; filename="audio.mp3"');
 
     stream.pipe(res);
+
   } catch (err) {
-    console.error(err.message);
     res.status(500).send("Download failed");
   }
 });

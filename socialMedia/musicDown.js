@@ -31,7 +31,15 @@ function cleanUrl(url) {
 
  // ===== Supported platforms ===
 
-if (
+
+  }
+  if (url.includes("youtube.com" || url.includes("youtu.be"))) {
+    return url;
+  }
+
+  return url;
+
+  if (
 
 url.includes("x.com") ||
 
@@ -58,12 +66,8 @@ url.includes("mixcloud.com")
 return url;
 
 }
-  }
-  if (url.includes("youtube.com" || url.includes("youtu.be"))) {
-    return url;
-  }
 
-  return url;
+
 }
 
 // ==========================================

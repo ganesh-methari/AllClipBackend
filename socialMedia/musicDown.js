@@ -29,9 +29,38 @@ function cleanUrl(url) {
   if (url.includes("youtube.com")) {
     const match = url.match(/v=([^&]+)/);
 
-    if (match) {
-      return `https://www.youtube.com/watch?v=${match[1]}`;
-    }
+ // ===== Supported platforms ===
+
+if (
+
+url.includes("x.com") ||
+
+url.includes ("facebook.com") ||
+
+url.includes("instagram.com") ||
+
+url.includes("vimeo.com") ||
+
+url.includes("twitch.tv") ||
+
+url.includes("reddit.com") ||
+
+url.includes("soundcloud.com") ||
+
+url.includes("bandcamp.com") ||
+
+url.includes("mixcloud.com")
+
+// url.includes("audiomack.com") 
+)
+{
+
+return url;
+
+}
+  }
+  if (url.includes("youtube.com" || url.includes("youtu.be"))) {
+    return url;
   }
 
   return url;

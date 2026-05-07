@@ -1,3 +1,7 @@
+// ==========================================
+// ✅ musicDown.js
+// ==========================================
+
 const express = require("express");
 
 const router = express.Router();
@@ -13,6 +17,30 @@ const os = require("os");
 
 const crypto =
   require("crypto");
+
+// ==========================================
+// ✅ COOKIES PATH
+// ==========================================
+const cookiesPath =
+  path.join(
+    process.cwd(),
+    "cookies.txt"
+  );
+
+// ==========================================
+// ✅ DEBUG
+// ==========================================
+console.log(
+  "Cookies Path:",
+  cookiesPath
+);
+
+console.log(
+  "Cookies Exists:",
+  fs.existsSync(
+    cookiesPath
+  )
+);
 
 // ==========================================
 // ✅ SUPPORTED SITES
@@ -74,7 +102,7 @@ function isValidUrl(url) {
 }
 
 // ==========================================
-// ✅ ESTIMATE SIZE
+// ✅ SIZE
 // ==========================================
 function estimateSize(
   bitrate,
@@ -92,6 +120,43 @@ function estimateSize(
     sizeMB.toFixed(1) +
     " MB"
   );
+}
+
+// ==========================================
+// ✅ COMMON yt-dlp ARGS
+// ==========================================
+function commonArgs() {
+
+  const args = [
+
+    "--extractor-args",
+    "youtube:player_client=android",
+
+    "--no-playlist",
+
+    "--user-agent",
+    "Mozilla/5.0",
+
+    "--quiet",
+  ];
+
+  // cookies only if exists
+  if (
+    fs.existsSync(
+      cookiesPath
+    )
+  ) {
+
+    args.unshift(
+      cookiesPath
+    );
+
+    args.unshift(
+      "--cookies"
+    );
+  }
+
+  return args;
 }
 
 // ==========================================
@@ -127,19 +192,12 @@ router.post(
       // ✅ yt-dlp
       // ==========================================
       const yt = spawn(
+
         "yt-dlp",
 
         [
 
-          "--cookies",
-          "cookies.txt",
-
-          "--extractor-args",
-          "youtube:player_client=android",
-
-          "--no-playlist",
-
-          "--quiet",
+          ...commonArgs(),
 
           "-j",
 
@@ -161,6 +219,7 @@ router.post(
         "data",
 
         (d) => {
+
           console.log(
             d.toString()
           );
@@ -177,7 +236,10 @@ router.post(
           )
             return;
 
-          if (code !== 0) {
+          // failed
+          if (
+            code !== 0
+          ) {
 
             return res
               .status(500)
@@ -250,7 +312,9 @@ router.post(
                     a.bitrate
                 );
 
-            // mp3
+            // ==========================================
+            // ✅ MP3
+            // ==========================================
             const mp3Formats =
               [320, 256, 160].map(
                 (b) => ({
@@ -294,6 +358,27 @@ router.post(
               .json({
                 error:
                   "Parse failed ❌",
+              });
+          }
+        }
+      );
+
+      yt.on(
+        "error",
+
+        (err) => {
+
+          console.log(err);
+
+          if (
+            !res.headersSent
+          ) {
+
+            return res
+              .status(500)
+              .json({
+                error:
+                  "yt-dlp crashed ❌",
               });
           }
         }
@@ -375,13 +460,7 @@ router.get(
 
         args = [
 
-          "--cookies",
-          "cookies.txt",
-
-          "--extractor-args",
-          "youtube:player_client=android",
-
-          "--no-playlist",
+          ...commonArgs(),
 
           "-f",
           "bestaudio",
@@ -408,13 +487,7 @@ router.get(
 
         args = [
 
-          "--cookies",
-          "cookies.txt",
-
-          "--extractor-args",
-          "youtube:player_client=android",
-
-          "--no-playlist",
+          ...commonArgs(),
 
           "-f",
           format,
@@ -438,6 +511,7 @@ router.get(
         "data",
 
         (d) => {
+
           console.log(
             d.toString()
           );
@@ -449,7 +523,9 @@ router.get(
 
         (code) => {
 
-          if (code !== 0) {
+          if (
+            code !== 0
+          ) {
 
             return res
               .status(500)
@@ -467,6 +543,16 @@ router.get(
               err,
               files
             ) => {
+
+              if (err) {
+
+                return res
+                  .status(500)
+                  .json({
+                    error:
+                      "File error ❌",
+                  });
+              }
 
               const file =
                 files.find(
@@ -490,8 +576,12 @@ router.get(
                   file
                 );
 
+              // ==========================================
+              // ✅ CLEAN NAME
+              // ==========================================
               const cleanName =
                 file
+
                   .replace(
                     /^[a-f0-9]+-/,
                     ""
@@ -505,8 +595,13 @@ router.get(
                   .replace(
                     /[<>:"/\\|?*]/g,
                     ""
-                  );
+                  )
 
+                  .trim();
+
+              // ==========================================
+              // ✅ HEADER
+              // ==========================================
               res.setHeader(
 
                 "x-file-name",
@@ -516,20 +611,51 @@ router.get(
                 )
               );
 
+              // ==========================================
+              // ✅ SEND
+              // ==========================================
               res.sendFile(
 
                 fullPath,
 
-                () => {
+                (err) => {
 
                   fs.unlink(
                     fullPath,
                     () => {}
                   );
+
+                  if (err) {
+
+                    console.log(
+                      err
+                    );
+                  }
                 }
               );
             }
           );
+        }
+      );
+
+      yt.on(
+        "error",
+
+        (err) => {
+
+          console.log(err);
+
+          if (
+            !res.headersSent
+          ) {
+
+            return res
+              .status(500)
+              .json({
+                error:
+                  "yt-dlp crashed ❌",
+              });
+          }
         }
       );
 

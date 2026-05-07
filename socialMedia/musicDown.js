@@ -1,5 +1,5 @@
 // ==========================================
-// ✅ musicDown.js
+// ✅ musicDown.js (SAFE VERSION)
 // ==========================================
 
 const express = require("express");
@@ -47,18 +47,14 @@ function cleanUrl(url) {
 
   url = url.trim();
 
-  // ==========================================
-  // ✅ YOUTUBE SHORT LINK
-  // ==========================================
+  // youtube short
   if (url.includes("youtu.be")) {
     const id = url.split("/").pop().split("?")[0];
 
     return `https://www.youtube.com/watch?v=${id}`;
   }
 
-  // ==========================================
-  // ✅ NORMAL YOUTUBE
-  // ==========================================
+  // normal youtube
   if (url.includes("youtube.com")) {
     const match = url.match(/v=([^&]+)/);
 
@@ -91,127 +87,268 @@ function estimateSize(bitrate, duration) {
 }
 
 // ==========================================
+// ✅ SAFE ERROR RESPONSE
+// ==========================================
+function sendError(res, code, message) {
+  if (!res.headersSent) {
+    return res.status(code).json({
+      error: message,
+    });
+  }
+}
+
+// ==========================================
 // ✅ INFO API
 // ==========================================
-router.post(
-  "/info",
+router.post("/info", async (req, res) => {
 
-  (req, res) => {
-    const url = cleanUrl(req.body.url);
+  try {
 
-    // ==========================================
-    // ✅ VALIDATION
-    // ==========================================
-    if (!url || !isValidUrl(url)) {
-      return res.status(400).json({
-        error: "Invalid URL ❌",
-      });
+    const url =
+      cleanUrl(req.body.url);
+
+    // ✅ VALIDATE
+    if (
+      !url ||
+      !isValidUrl(url)
+    ) {
+
+      return res
+        .status(400)
+        .json({
+          error:
+            "Invalid URL ❌",
+        });
     }
 
-    // ==========================================
     // ✅ yt-dlp
-    // ==========================================
     const yt = spawn(
       "yt-dlp",
 
-      ["--js-runtimes", "node", "-j", url],
+      [
+        "--js-runtimes",
+        "node",
+
+        "-j",
+
+        url,
+      ]
     );
 
     let data = "";
 
+    // ==========================================
+    // ✅ OUTPUT
+    // ==========================================
     yt.stdout.on(
       "data",
 
       (chunk) => {
         data += chunk;
-      },
+      }
     );
 
+    // ==========================================
+    // ✅ ERROR LOG
+    // ==========================================
     yt.stderr.on(
       "data",
 
       (d) => {
-        console.log(d.toString());
-      },
+        console.log(
+          d.toString()
+        );
+      }
     );
 
+    // ==========================================
+    // ✅ FINISH
+    // ==========================================
     yt.on(
       "close",
 
-      () => {
+      (code) => {
+
+        // already sent
+        if (
+          res.headersSent
+        )
+          return;
+
+        // failed
+        if (code !== 0) {
+
+          return res
+            .status(500)
+            .json({
+              error:
+                "yt-dlp failed ❌",
+            });
+        }
+
         try {
-          const json = JSON.parse(data);
 
-          const duration = json.duration;
+          const json =
+            JSON.parse(data);
+
+          const duration =
+            json.duration;
 
           // ==========================================
-          // ✅ AUDIO FORMATS
+          // ✅ AUDIO
           // ==========================================
-          const audioFormats = json.formats
+          const audioFormats =
+            json.formats
 
-            .filter((f) => f.acodec !== "none" && f.vcodec === "none")
+              .filter(
+                (f) =>
+                  f.acodec !==
+                    "none" &&
+                  f.vcodec ===
+                    "none"
+              )
 
-            .map((f) => ({
-              format_id: f.format_id,
+              .map((f) => ({
 
-              bitrate: Math.round(f.abr || f.tbr || 0),
+                format_id:
+                  f.format_id,
 
-              size: f.filesize
-                ? (f.filesize / 1024 / 1024).toFixed(1) + " MB"
-                : estimateSize(
-                    Math.round(f.abr || f.tbr || 0),
-
-                    duration,
+                bitrate:
+                  Math.round(
+                    f.abr ||
+                      f.tbr ||
+                      0
                   ),
 
-              ext: f.ext,
-            }))
+                size:
+                  f.filesize
 
-            .sort((a, b) => b.bitrate - a.bitrate);
+                    ? (
+                        f.filesize /
+                        1024 /
+                        1024
+                      ).toFixed(1) +
+                      " MB"
+
+                    : estimateSize(
+                        Math.round(
+                          f.abr ||
+                            f.tbr ||
+                            0
+                        ),
+
+                        duration
+                      ),
+
+                ext: f.ext,
+              }))
+
+              .sort(
+                (a, b) =>
+                  b.bitrate -
+                  a.bitrate
+              );
 
           // ==========================================
-          // ✅ MP3 OPTIONS
+          // ✅ MP3
           // ==========================================
-          const mp3Formats = [320, 256, 160].map((b) => ({
-            format_id: `mp3-${b}`,
+          const mp3Formats =
+            [320, 256, 160].map(
+              (b) => ({
+                format_id:
+                  `mp3-${b}`,
 
-            bitrate: b,
+                bitrate: b,
 
-            size: estimateSize(b, duration),
+                size:
+                  estimateSize(
+                    b,
+                    duration
+                  ),
 
-            ext: "mp3",
-          }));
+                ext: "mp3",
+              })
+            );
 
-          res.json({
-            title: json.title,
+          // ==========================================
+          // ✅ SEND
+          // ==========================================
+          return res.json({
 
-            thumbnail: json.thumbnail,
+            title:
+              json.title,
 
-            formats: [...audioFormats, ...mp3Formats],
+            thumbnail:
+              json.thumbnail,
+
+            formats: [
+
+              ...audioFormats,
+
+              ...mp3Formats,
+            ],
           });
+
         } catch (err) {
+
           console.log(err);
 
-          res.status(500).json({
-            error: "Failed to fetch media ❌",
-          });
+          if (
+            !res.headersSent
+          ) {
+
+            return res
+              .status(500)
+              .json({
+                error:
+                  "Parse failed ❌",
+              });
+          }
         }
-      },
+      }
     );
 
+    // ==========================================
+    // ✅ yt-dlp crash
+    // ==========================================
     yt.on(
       "error",
 
       (err) => {
+
         console.log(err);
 
-        res.status(500).json({
-          error: "yt-dlp crashed ❌",
-        });
-      },
+        if (
+          !res.headersSent
+        ) {
+
+          return res
+            .status(500)
+            .json({
+              error:
+                "yt-dlp crashed ❌",
+            });
+        }
+      }
     );
-  },
-);
+
+  } catch (err) {
+
+    console.log(err);
+
+    if (
+      !res.headersSent
+    ) {
+
+      return res
+        .status(500)
+        .json({
+          error:
+            "Server error ❌",
+        });
+    }
+  }
+});
 
 // ==========================================
 // ✅ DOWNLOAD API
@@ -224,29 +361,19 @@ router.get(
 
     const format = req.query.format;
 
-    // ==========================================
-    // ✅ VALIDATION
-    // ==========================================
+    // validation
     if (!url || !format) {
-      return res.status(400).json({
-        error: "Missing data ❌",
-      });
+      return sendError(res, 400, "Missing data ❌");
     }
 
     if (!isValidUrl(url)) {
-      return res.status(400).json({
-        error: "Invalid URL ❌",
-      });
+      return sendError(res, 400, "Invalid URL ❌");
     }
 
-    // ==========================================
-    // ✅ UNIQUE ID
-    // ==========================================
+    // unique id
     const id = crypto.randomBytes(6).toString("hex");
 
-    // ==========================================
-    // ✅ TEMP FILE
-    // ==========================================
+    // output
     const outputTemplate = path.join(
       os.tmpdir(),
 
@@ -256,7 +383,7 @@ router.get(
     let args = [];
 
     // ==========================================
-    // ✅ MP3 CONVERT
+    // ✅ MP3
     // ==========================================
     if (format.startsWith("mp3-")) {
       args = [
@@ -309,10 +436,11 @@ router.get(
       "close",
 
       (code) => {
+        // already sent
+        if (res.headersSent) return;
+
         if (code !== 0) {
-          return res.status(500).json({
-            error: "Download failed ❌",
-          });
+          return sendError(res, 500, "Download failed ❌");
         }
 
         // ==========================================
@@ -323,24 +451,18 @@ router.get(
 
           (err, files) => {
             if (err) {
-              return res.status(500).json({
-                error: "File error ❌",
-              });
+              return sendError(res, 500, "File error ❌");
             }
 
             const file = files.find((f) => f.startsWith(id));
 
             if (!file) {
-              return res.status(500).json({
-                error: "File not found ❌",
-              });
+              return sendError(res, 500, "File not found ❌");
             }
 
             const fullPath = path.join(os.tmpdir(), file);
 
-            // ==========================================
-            // ✅ CLEAN FILE NAME
-            // ==========================================
+            // clean name
             let originalName = file.replace(/^[a-f0-9]+-/, "");
 
             const safeFileName = originalName
@@ -351,9 +473,7 @@ router.get(
 
               .trim();
 
-            // ==========================================
-            // ✅ HEADERS
-            // ==========================================
+            // headers
             res.setHeader(
               "x-file-name",
 
@@ -369,12 +489,14 @@ router.get(
               fullPath,
 
               (err) => {
-                // delete temp file
-                fs.unlink(fullPath, () => {});
-
                 if (err) {
                   console.log(err);
+
+                  return;
                 }
+
+                // delete temp
+                fs.unlink(fullPath, () => {});
               },
             );
           },
@@ -388,9 +510,7 @@ router.get(
       (err) => {
         console.log(err);
 
-        res.status(500).json({
-          error: "yt-dlp crashed ❌",
-        });
+        return sendError(res, 500, "yt-dlp crashed ❌");
       },
     );
   },

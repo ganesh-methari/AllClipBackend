@@ -10,8 +10,10 @@ const app = express();
 // ==========================================
 app.use(
   cors({
-    origin: "*",
+    origin: "https://all-clip-frontend.vercel.app", // ✅ your exact frontend URL
     exposedHeaders: ["x-file-name"],
+    methods: ["GET", "POST", "OPTIONS"],
+    allowedHeaders: ["Content-Type"],
   })
 );
 

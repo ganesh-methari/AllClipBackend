@@ -10,8 +10,15 @@ const app = express();
 // ==========================================
 app.use(
   cors({
-    origin: "*",
+    origin: [
+      "https://all-clip-frontend.vercel.app", // Production
+      "http://localhost:5173",                // Localhost dev
+      "http://127.0.0.1:5173",                // Localhost dev alt
+      "http://192.168.0.106:5173"             // Local network dev
+    ], // ✅ allowed frontend URLs
     exposedHeaders: ["x-file-name"],
+    methods: ["GET", "POST", "OPTIONS"],
+    allowedHeaders: ["Content-Type"],
   })
 );
 

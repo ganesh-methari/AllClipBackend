@@ -1,5 +1,5 @@
 // ==========================================
-// ✅ musicDown.js
+//  musicDown.js
 // ==========================================
 
 const express = require("express");
@@ -11,18 +11,18 @@ const os = require("os");
 const crypto = require("crypto");
 
 // ==========================================
-// ✅ COOKIES PATH
+//  COOKIES PATH
 // ==========================================
 const cookiesPath = path.join(process.cwd(), "cookies.txt");
 
 // ==========================================
-// ✅ DEBUG
+//  DEBUG
 // ==========================================
 console.log("Cookies Path:", cookiesPath);
 console.log("Cookies Exists:", fs.existsSync(cookiesPath));
 
 // ==========================================
-// ✅ SUPPORTED SITES
+//  SUPPORTED SITES
 // ==========================================
 const supportedSites = [
   "youtube.com",
@@ -30,21 +30,23 @@ const supportedSites = [
   "instagram.com",
   "facebook.com",
   "x.com",
+  "twitter.com",
   "vimeo.com",
   "reddit.com",
-  "soundcloud.com",
-  "on.soundcloud.com",
+  "twitch.tv",
+  "pinterest.com",
+  "pin.it",
 ];
 
 // ==========================================
-// ✅ CLEAN URL
+//  CLEAN URL
 // ==========================================
 function cleanUrl(url) {
   if (!url) return null;
 
   url = url.trim();
 
-  // ✅ strip any accidental characters before https:// or http://
+  //  strip any accidental characters before https:// or http://
   const httpIndex = url.indexOf("http");
   if (httpIndex > 0) {
     url = url.slice(httpIndex);
@@ -60,29 +62,29 @@ function cleanUrl(url) {
 }
 
 // ==========================================
-// ✅ VALID URL
+//  VALID URL
 // ==========================================
 function isValidUrl(url) {
   // soundcloud must be a direct track URL
-  // ❌ soundcloud.com/search?q=...
-  // ❌ soundcloud.com/artistname
-  // ✅ soundcloud.com/artistname/trackname
+  //  soundcloud.com/search?q=...
+  //  soundcloud.com/artistname
+  //  soundcloud.com/artistname/trackname
   if (url.includes("soundcloud.com")) {
     if (url.includes("/search")) {
-      return false; // search page ❌
+      return false; // search page 
     }
     const parts = url
       .replace(/https?:\/\//, "")
       .split("/")
       .filter(Boolean);
-    if (parts.length < 2) return false; // artist page only ❌
+    if (parts.length < 2) return false; // artist page only 
   }
 
   return supportedSites.some((site) => url.includes(site));
 }
 
 // ==========================================
-// ✅ SIZE ESTIMATE
+//  SIZE ESTIMATE
 // ==========================================
 function estimateSize(bitrate, duration) {
   if (!duration) return "~";
@@ -91,7 +93,7 @@ function estimateSize(bitrate, duration) {
 }
 
 // ==========================================
-// ✅ COMMON yt-dlp ARGS
+//  COMMON yt-dlp ARGS
 // ==========================================
 function commonArgs() {
   const args = [
@@ -111,21 +113,21 @@ function commonArgs() {
 }
 
 // ==========================================
-// ✅ INFO API
+//  INFO API
 // ==========================================
 router.post("/info", (req, res) => {
   try {
     const url = cleanUrl(req.body.url);
 
     // ==========================================
-    // ✅ VALIDATE
+    //  VALIDATE
     // ==========================================
     if (!url || !isValidUrl(url)) {
-      return res.status(400).json({ error: "Invalid URL ❌" });
+      return res.status(400).json({ error: "Invalid URL " });
     }
 
     // ==========================================
-    // ✅ yt-dlp
+    //  yt-dlp
     // ==========================================
     const yt = spawn("yt-dlp", [...commonArgs(), "-j", url]);
 
@@ -143,7 +145,7 @@ router.post("/info", (req, res) => {
       if (res.headersSent) return;
 
       if (code !== 0) {
-        return res.status(500).json({ error: "Failed to fetch media ❌" });
+        return res.status(500).json({ error: "Failed to fetch media " });
       }
 
       try {
@@ -151,9 +153,9 @@ router.post("/info", (req, res) => {
         const duration = json.duration;
 
         // ==========================================
-        // ✅ M4A — best one only
+        //  M4A — best one only
         // ==========================================
-        const m4aFormats = json.formats
+        const m4aFormats = (json.formats || [])
           .filter(
             (f) =>
               f.ext === "m4a" && f.acodec !== "none" && f.vcodec === "none",
@@ -170,7 +172,7 @@ router.post("/info", (req, res) => {
           .slice(0, 1);
 
         // ==========================================
-        // ✅ MP3 — 320 / 256 / 160
+        //  MP3 — 320 / 256 / 160
         // ==========================================
         const mp3Formats = [320, 256, 160].map((b) => ({
           format_id: `mp3-${b}`,
@@ -186,26 +188,26 @@ router.post("/info", (req, res) => {
         });
       } catch (err) {
         console.log(err);
-        return res.status(500).json({ error: "Parse failed ❌" });
+        return res.status(500).json({ error: "Parse failed " });
       }
     });
 
     yt.on("error", (err) => {
       console.log(err);
       if (!res.headersSent) {
-        return res.status(500).json({ error: "yt-dlp crashed ❌" });
+        return res.status(500).json({ error: "yt-dlp crashed " });
       }
     });
   } catch (err) {
     console.log(err);
     if (!res.headersSent) {
-      return res.status(500).json({ error: "Server error ❌" });
+      return res.status(500).json({ error: "Server error " });
     }
   }
 });
 
 // ==========================================
-// ✅ DOWNLOAD API
+//  DOWNLOAD API
 // ==========================================
 router.get("/download", (req, res) => {
   try {
@@ -213,7 +215,7 @@ router.get("/download", (req, res) => {
     const format = req.query.format;
 
     if (!url || !format) {
-      return res.status(400).json({ error: "Missing data ❌" });
+      return res.status(400).json({ error: "Missing data " });
     }
 
     const id = crypto.randomBytes(6).toString("hex");
@@ -226,7 +228,7 @@ router.get("/download", (req, res) => {
     let args = [];
 
     // ==========================================
-    // ✅ MP3 CONVERSION
+    //  MP3 CONVERSION
     // ==========================================
     if (format.startsWith("mp3-")) {
       const quality = format.split("-")[1];
@@ -253,14 +255,14 @@ router.get("/download", (req, res) => {
     }
 
     // ==========================================
-    // ✅ DIRECT (m4a)
+    //  DIRECT (m4a)
     // ==========================================
     else {
       args = [...commonArgs(), "-f", format, "-o", outputTemplate, url];
     }
 
     // ==========================================
-    // ✅ yt-dlp
+    //  yt-dlp
     // ==========================================
     const yt = spawn("yt-dlp", args);
 
@@ -270,38 +272,37 @@ router.get("/download", (req, res) => {
 
     yt.on("close", (code) => {
       if (code !== 0) {
-        return res.status(500).json({ error: "Download failed ❌" });
+        return res.status(500).json({ error: "Download failed " });
       }
 
       fs.readdir(os.tmpdir(), (err, files) => {
         if (err) {
-          return res.status(500).json({ error: "File error ❌" });
+          return res.status(500).json({ error: "File error " });
         }
 
         const file = files.find((f) => f.startsWith(id));
 
         if (!file) {
-          return res.status(500).json({ error: "File not found ❌" });
+          return res.status(500).json({ error: "File not found " });
         }
 
         const fullPath = path.join(os.tmpdir(), file);
 
         // ==========================================
-        // ✅ CLEAN FILE NAME
+        //  CLEAN FILE NAME
         // ==========================================
         const cleanName = file
           .replace(/^[a-f0-9]+-/, "")
-          .replace(/[^\x00-\x7F]/g, "")
           .replace(/[<>:"/\\|?*]/g, "")
           .trim();
 
         // ==========================================
-        // ✅ HEADER
+        //  HEADER
         // ==========================================
         res.setHeader("x-file-name", encodeURIComponent(cleanName));
 
         // ==========================================
-        // ✅ SEND FILE
+        //  SEND FILE
         // ==========================================
         res.sendFile(fullPath, (err) => {
           fs.unlink(fullPath, () => {});
@@ -313,13 +314,13 @@ router.get("/download", (req, res) => {
     yt.on("error", (err) => {
       console.log(err);
       if (!res.headersSent) {
-        return res.status(500).json({ error: "yt-dlp crashed ❌" });
+        return res.status(500).json({ error: "yt-dlp crashed " });
       }
     });
   } catch (err) {
     console.log(err);
     if (!res.headersSent) {
-      return res.status(500).json({ error: "Server error ❌" });
+      return res.status(500).json({ error: "Server error " });
     }
   }
 });

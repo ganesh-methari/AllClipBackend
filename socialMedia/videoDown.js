@@ -33,6 +33,9 @@ const supportedSites = [
   "twitter.com",
   "vimeo.com",
   "reddit.com",
+  "twitch.tv",
+  "pinterest.com",
+  "pin.it",
 ];
 
 // ==========================================
@@ -71,6 +74,10 @@ function cleanUrl(url) {
 
   url = url.trim();
 
+  // strip accidental chars before http
+  const httpIndex = url.indexOf("http");
+  if (httpIndex > 0) url = url.slice(httpIndex);
+
   if (url.includes("youtu.be")) {
     const id = url.split("/").pop().split("?")[0];
     return `https://www.youtube.com/watch?v=${id}`;
@@ -96,9 +103,30 @@ function estimateSize(bitrateKbps, duration) {
 }
 
 // ==========================================
+// ✅ GET BYTES — filesize → approx → 0
+// ==========================================
+function getBytes(f) {
+  return f?.filesize || f?.filesize_approx || 0;
+}
+
+// ==========================================
+// ✅ GET HEIGHT — height → resolution → null
+// ==========================================
+function getHeight(f) {
+  if (f.height) return f.height;
+
+  if (f.resolution && f.resolution !== "audio only") {
+    const parts = f.resolution.split("x");
+    if (parts.length === 2) {
+      return parseInt(parts[1]) || parseInt(parts[0]) || null;
+    }
+  }
+
+  return null;
+}
+
+// ==========================================
 // ✅ COMMON yt-dlp ARGS
-// no extractor-args, let yt-dlp auto pick
-// best client using cookies
 // ==========================================
 function commonArgs() {
   const args = [
@@ -107,6 +135,7 @@ function commonArgs() {
     "Mozilla/5.0",
     "--js-runtimes",
     "node",
+    "--quiet",
   ];
 
   if (fs.existsSync(cookiesPath)) {
@@ -117,7 +146,6 @@ function commonArgs() {
   return args;
 }
 
-
 // ==========================================
 // ✅ INFO API
 // ==========================================
@@ -125,9 +153,6 @@ router.post("/info", (req, res) => {
   try {
     const url = cleanUrl(req.body.url);
 
-    // ==========================================
-    // ✅ VALIDATE
-    // ==========================================
     if (!url || !isValidUrl(url)) {
       return res.status(400).json({ error: "Invalid URL ❌" });
     }
@@ -140,13 +165,8 @@ router.post("/info", (req, res) => {
 
     let data = "";
 
-    yt.stdout.on("data", (chunk) => {
-      data += chunk;
-    });
-
-    yt.stderr.on("data", (d) => {
-      console.log(d.toString());
-    });
+    yt.stdout.on("data", (chunk) => { data += chunk; });
+    yt.stderr.on("data", (d) => { console.log(d.toString()); });
 
     yt.on("close", (code) => {
       if (res.headersSent) return;
@@ -158,32 +178,67 @@ router.post("/info", (req, res) => {
       try {
         const json = JSON.parse(data);
 
+        // ==========================================
+        // ✅ BUILD FORMATS
+        // ==========================================
         const seen = new Set();
 
-        const formats = json.formats
+        const formats = (json.formats || [])
           .filter((f) => {
-            if (
-              f.vcodec === "none" ||
-              !f.height ||
-              seen.has(f.height)
-            ) return false;
+            const h = getHeight(f);
+            if (!h || seen.has(h)) return false;
 
-            seen.add(f.height);
+            // video-only streams
+            const hasVideo =
+              f.vcodec && f.vcodec !== "none";
+
+            // muxed streams (generic extractor)
+            const isMuxed =
+              ["mp4", "webm", "mov", "m4v"].includes(f.ext) &&
+              f.acodec !== "none";
+
+            if (!hasVideo && !isMuxed) return false;
+
+            seen.add(h);
             return true;
           })
-          .sort((a, b) => b.height - a.height)
-          .map((f) => ({
-            height:  f.height,
-            quality: `${f.height}p`,
-            ext:     "mp4",
-            size: f.filesize
-              ? (f.filesize / 1024 / 1024).toFixed(1) + " MB"
-              : estimateSize(
-                  qualityBitrate[f.height] || 1000,
-                  json.duration
-                ),
-            label: qualityLabel[f.height] || "",
-          }));
+          .sort((a, b) => getHeight(b) - getHeight(a))
+          .map((f) => {
+            const h = getHeight(f);
+
+            // best audio stream
+            const bestAudio = (json.formats || [])
+              .filter(
+                (a) => a.acodec !== "none" && a.vcodec === "none"
+              )
+              .sort((a, b) => getBytes(b) - getBytes(a))[0];
+
+            // best video stream at this height
+            const bestVideo = (json.formats || [])
+              .filter(
+                (v) => v.vcodec !== "none" && getHeight(v) === h
+              )
+              .sort((a, b) => getBytes(b) - getBytes(a))[0];
+
+            const totalBytes =
+              getBytes(bestVideo) + getBytes(bestAudio);
+
+            const size =
+              totalBytes > 0
+                ? "~" + (totalBytes / 1024 / 1024).toFixed(1) + " MB"
+                : "~" + estimateSize(
+                    qualityBitrate[h] || 1000,
+                    json.duration
+                  );
+
+            return {
+              height:  h,
+              quality: `${h}p`,
+              ext:     f.ext || "mp4",
+              size,
+              label:   qualityLabel[h] || "",
+            };
+          });
 
         return res.json({
           title:     json.title,
@@ -228,9 +283,10 @@ router.get("/download", (req, res) => {
 
     const id = crypto.randomBytes(6).toString("hex");
 
+    // ✅ quality in filename
     const outputTemplate = path.join(
       os.tmpdir(),
-      `${id}-%(title).100s.%(ext)s`
+      `${id}-%(title).80s [${height}p].%(ext)s`
     );
 
     // ==========================================
@@ -243,27 +299,18 @@ router.get("/download", (req, res) => {
 
     const args = [
       ...commonArgs(),
-
       "-f",
       formatStr,
-
       "--merge-output-format",
       "mp4",
-
       "-o",
       outputTemplate,
-
       url,
     ];
 
-    // ==========================================
-    // ✅ yt-dlp
-    // ==========================================
     const yt = spawn("yt-dlp", args);
 
-    yt.stderr.on("data", (d) => {
-      console.log(d.toString());
-    });
+    yt.stderr.on("data", (d) => { console.log(d.toString()); });
 
     yt.on("close", (code) => {
       if (code !== 0) {
@@ -288,7 +335,6 @@ router.get("/download", (req, res) => {
         // ==========================================
         const cleanName = file
           .replace(/^[a-f0-9]+-/, "")
-          .replace(/[^\x00-\x7F]/g, "")
           .replace(/[<>:"/\\|?*]/g, "")
           .trim();
 

@@ -36,6 +36,8 @@ const supportedSites = [
   "twitch.tv",
   "pinterest.com",
   "pin.it",
+  "soundcloud.com",
+  "on.soundcloud.com",
 ];
 
 // ==========================================

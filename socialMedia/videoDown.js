@@ -270,7 +270,7 @@ router.post("/info", (req, res) => {
 });
 
 // ==========================================
-// ✅ DOWNLOAD API
+// ✅ DOWNLOAD API (streaming via yt-dlp stdout, combined formats)
 // ==========================================
 router.get("/download", (req, res) => {
   try {
@@ -281,89 +281,34 @@ router.get("/download", (req, res) => {
       return res.status(400).json({ error: "Missing data ❌" });
     }
 
-    const id = crypto.randomBytes(6).toString("hex");
+    const passedTitle = (req.query.title || "video").toString();
+    const safeTitle = passedTitle.replace(/[<>:"/\\|?*\n\r]/g, "").slice(0, 80);
+    res.setHeader("Content-Type", "video/mp4");
+    res.setHeader("x-file-name", encodeURIComponent(`${safeTitle} [${height}p].mp4`));
 
-    // ✅ quality in filename
-    const outputTemplate = path.join(
-      os.tmpdir(),
-      `${id}-%(title).80s [${height}p].%(ext)s`
-    );
-
-    // ==========================================
-    // ✅ FORMAT STRING
-    // ==========================================
     const formatStr =
-      `bestvideo[height<=${height}][ext=mp4]+bestaudio[ext=m4a]` +
-      `/bestvideo[height<=${height}]+bestaudio` +
+      `best[height<=${height}][ext=mp4]` +
       `/best[height<=${height}]`;
 
     const args = [
       ...commonArgs(),
-      "-f",
-      formatStr,
-      "--merge-output-format",
-      "mp4",
-      "-o",
-      outputTemplate,
+      "--downloader", "aria2c",
+      "--downloader-args", "aria2c:-x 16 -s 16 -k 1M",
+      "-f", formatStr,
+      "-o", "-",
       url,
     ];
 
     const yt = spawn("yt-dlp", args);
-
-    yt.stderr.on("data", (d) => { console.log(d.toString()); });
-
+    yt.stdout.pipe(res);
+    yt.stderr.on("data", (d) => console.log(d.toString()));
     yt.on("close", (code) => {
-      if (code !== 0) {
-        return res.status(500).json({ error: "Download failed ❌" });
-      }
-
-      fs.readdir(os.tmpdir(), (err, files) => {
-        if (err) {
-          return res.status(500).json({ error: "File error ❌" });
-        }
-
-        const file = files.find((f) => f.startsWith(id));
-
-        if (!file) {
-          return res.status(500).json({ error: "File not found ❌" });
-        }
-
-        const fullPath = path.join(os.tmpdir(), file);
-
-        // ==========================================
-        // ✅ CLEAN FILE NAME
-        // ==========================================
-        const cleanName = file
-          .replace(/^[a-f0-9]+-/, "")
-          .replace(/[<>:"/\\|?*]/g, "")
-          .trim();
-
-        // ==========================================
-        // ✅ HEADERS
-        // ==========================================
-        res.setHeader("Content-Type", "video/mp4");
-        res.setHeader(
-          "x-file-name",
-          encodeURIComponent(cleanName)
-        );
-
-        // ==========================================
-        // ✅ SEND FILE
-        // ==========================================
-        res.sendFile(fullPath, (err) => {
-          fs.unlink(fullPath, () => {});
-          if (err) console.log(err);
-        });
-      });
+      if (code !== 0 && !res.headersSent) res.status(500).end();
     });
-
     yt.on("error", (err) => {
       console.log(err);
-      if (!res.headersSent) {
-        return res.status(500).json({ error: "yt-dlp crashed ❌" });
-      }
+      if (!res.headersSent) res.status(500).end();
     });
-
   } catch (err) {
     console.log(err);
     if (!res.headersSent) {

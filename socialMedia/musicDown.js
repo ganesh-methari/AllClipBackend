@@ -207,7 +207,7 @@ router.post("/info", (req, res) => {
 });
 
 // ==========================================
-//  DOWNLOAD API
+//  DOWNLOAD API (streaming via yt-dlp stdout)
 // ==========================================
 router.get("/download", (req, res) => {
   try {
@@ -218,104 +218,43 @@ router.get("/download", (req, res) => {
       return res.status(400).json({ error: "Missing data " });
     }
 
-    const id = crypto.randomBytes(6).toString("hex");
+    const ext = format.startsWith("mp3-") ? "mp3" : "m4a";
+    const passedTitle = (req.query.title || "audio").toString();
+    const safeTitle = passedTitle.replace(/[<>:"/\\|?*\n\r]/g, "").slice(0, 100);
+    res.setHeader("x-file-name", encodeURIComponent(`${safeTitle}.${ext}`));
+    res.setHeader("Content-Type", ext === "mp3" ? "audio/mpeg" : "audio/mp4");
 
-    const outputTemplate = path.join(
-      os.tmpdir(),
-      `${id}-%(title).100s.%(ext)s`,
-    );
-
-    let args = [];
-
-    // ==========================================
-    //  MP3 CONVERSION
-    // ==========================================
+    const aria = [
+      "--downloader", "aria2c",
+      "--downloader-args", "aria2c:-x 16 -s 16 -k 1M",
+    ];
+    let args;
     if (format.startsWith("mp3-")) {
       const quality = format.split("-")[1];
-
       args = [
         ...commonArgs(),
-
-        "-f",
-        "bestaudio",
-
+        ...aria,
+        "-f", "bestaudio",
         "-x",
-
-        "--audio-format",
-        "mp3",
-
+        "--audio-format", "mp3",
         "--audio-quality",
         quality === "320" ? "0" : quality === "256" ? "5" : "7",
-
-        "-o",
-        outputTemplate,
-
+        "-o", "-",
         url,
       ];
+    } else {
+      args = [...commonArgs(), ...aria, "-f", format, "-o", "-", url];
     }
 
-    // ==========================================
-    //  DIRECT (m4a)
-    // ==========================================
-    else {
-      args = [...commonArgs(), "-f", format, "-o", outputTemplate, url];
-    }
-
-    // ==========================================
-    //  yt-dlp
-    // ==========================================
     const yt = spawn("yt-dlp", args);
-
-    yt.stderr.on("data", (d) => {
-      console.log(d.toString());
-    });
-
+    yt.stdout.pipe(res);
+    yt.stderr.on("data", (d) => console.log(d.toString()));
     yt.on("close", (code) => {
-      if (code !== 0) {
-        return res.status(500).json({ error: "Download failed " });
-      }
-
-      fs.readdir(os.tmpdir(), (err, files) => {
-        if (err) {
-          return res.status(500).json({ error: "File error " });
-        }
-
-        const file = files.find((f) => f.startsWith(id));
-
-        if (!file) {
-          return res.status(500).json({ error: "File not found " });
-        }
-
-        const fullPath = path.join(os.tmpdir(), file);
-
-        // ==========================================
-        //  CLEAN FILE NAME
-        // ==========================================
-        const cleanName = file
-          .replace(/^[a-f0-9]+-/, "")
-          .replace(/[<>:"/\\|?*]/g, "")
-          .trim();
-
-        // ==========================================
-        //  HEADER
-        // ==========================================
-        res.setHeader("x-file-name", encodeURIComponent(cleanName));
-
-        // ==========================================
-        //  SEND FILE
-        // ==========================================
-        res.sendFile(fullPath, (err) => {
-          fs.unlink(fullPath, () => {});
-          if (err) console.log(err);
-        });
-      });
+      if (code !== 0 && !res.headersSent) res.status(500).end();
     });
-
     yt.on("error", (err) => {
       console.log(err);
-      if (!res.headersSent) {
-        return res.status(500).json({ error: "yt-dlp crashed " });
-      }
+      if (!res.headersSent) res.status(500).end();
     });
   } catch (err) {
     console.log(err);

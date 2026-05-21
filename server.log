@@ -3,3 +3,23 @@ Cookies Exists: true
 Cookies Path: C:\Users\Admin\Desktop\AllClip Full Working Audio and Video\BackEnd\cookies.txt
 Cookies Exists: true
 Server running on 5000 💚
+ERROR: [twitter] 20: No video could be found in this tweet
+
+ERROR: [twitter] 20: No video could be found in this tweet
+
+WARNING: [vimeo] The extractor is attempting impersonation, but no impersonate target is available. If you encounter errors, then see  https://github.com/yt-dlp/yt-dlp#impersonation  for information on installing the required dependencies
+
+ERROR: [vimeo] 22439234: Unable to download macos API JSON: HTTPSConnectionPool(host='api.vimeo.com', port=443): Read timed out. (read timeout=20.0) (caused by TransportError("HTTPSConnectionPool(host='api.vimeo.com', port=443): Read timed out. (read timeout=20.0)"))
+
+WARNING: [vimeo] The extractor is attempting impersonation, but no impersonate target is available. If you encounter errors, then see  https://github.com/yt-dlp/yt-dlp#impersonation  for information on installing the required dependencies
+
+ERROR: [twitch:vod] 100: Video 100 does not exist
+
+ERROR: [twitch:vod] 100: Video 100 does not exist
+
+ERROR: [Pinterest] 99360735500167749: No video formats found!; please report this issue on  https://github.com/yt-dlp/yt-dlp/issues?q= , filling out the appropriate issue template. Confirm you are on the latest version using  yt-dlp -U
+
+ERROR: [Pinterest] 99360735500167749: No video formats found!; please report this issue on  https://github.com/yt-dlp/yt-dlp/issues?q= , filling out the appropriate issue template. Confirm you are on the latest version using  yt-dlp -U
+
+WARNING: [vimeo] The extractor is attempting impersonation, but no impersonate target is available. If you encounter errors, then see  https://github.com/yt-dlp/yt-dlp#impersonation  for information on installing the required dependencies
+
